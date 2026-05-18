@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>دليلي - Gemini</title>
+<title>دليلي - Gemini 1.5</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Segoe UI',Tahoma,sans-serif; background:#070b14; color:#ddeeff;
   height:100vh; display:flex; flex-direction:column; overflow:hidden; direction:rtl; }
 
-/* ===== PAGES ===== */
 .page { display:none; flex-direction:column; align-items:center; justify-content:center;
   flex:1; padding:30px; gap:16px; text-align:center; }
 .page.show { display:flex; }
@@ -19,21 +18,166 @@ body { font-family:'Segoe UI',Tahoma,sans-serif; background:#070b14; color:#ddee
   background:linear-gradient(135deg,#4285f4,#34a853,#fbbc04,#ea4335);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 .subtitle { font-size:13px; color:#4a6a8a; line-height:1.7; }
-.label { font-size:13px; font-weight:700; color:#fbbc04; }
 
 #keyInput {
   width:100%; max-width:340px; padding:15px; border-radius:14px;
   border:2px solid #4285f4; background:#151e2e; color:#ddeeff;
   font-size:14px; font-family:monospace; outline:none; direction:ltr;
 }
-#keyInput.err { border-color:#ff3d3d; }
-#keyWarn { font-size:12px; color:#ff3d3d; display:none; }
-.hint { font-size:11px; color:#4a6a8a; line-height:1.8; max-width:320px; }
-.hint a { color:#4285f4; }
 
 .btn-blue {
   width:100%; max-width:340px; padding:15px; border-radius:14px; border:none;
   background:linear-gradient(135deg,#4285f4,#0d6efd); color:#fff;
+  font-weight:900; font-size:16px; cursor:pointer;
+}
+
+.btn-green {
+  width:100%; max-width:340px; padding:15px; border-radius:14px; border:none;
+  background:linear-gradient(135deg,#34a853,#1e8c3a); color:#fff;
+  font-weight:900; font-size:16px; cursor:pointer; display:none;
+}
+
+#appPage { display:none; flex-direction:column; flex:1; }
+#appPage.show { display:flex; }
+
+.hdr { padding:11px 15px; display:flex; justify-content:space-between; align-items:center;
+  background:#0e1520; border-bottom:1px solid #1e2d42; }
+
+#camBox { position:relative; flex:1; background:#000; overflow:hidden; }
+#vid { width:100%; height:100%; object-fit:cover; }
+
+.dot { width:9px; height:9px; border-radius:50%; background:#4a6a8a; }
+.dot.ready { background:#34a853; }
+.dot.busy { background:#4285f4; animation:blink 1s infinite; }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+.bot { background:#0e1520; border-top:1px solid #1e2d42; padding:20px; }
+#desc { font-size:14px; text-align:center; margin-bottom:15px; min-height:40px; }
+
+.mbtn { width:100%; max-width:200px; height:60px; border-radius:30px; border:none;
+  background:linear-gradient(135deg,#4285f4,#0d6efd); color:#fff;
+  font-weight:900; font-size:18px; cursor:pointer; margin: 0 auto; display: block; }
+</style>
+</head>
+<body>
+
+<div class="page show" id="page1">
+  <div class="logo">👁️</div>
+  <div class="title">دليلي</div>
+  <div class="subtitle">نسخة مستقرة - Gemini 1.5 Flash</div>
+  <input id="keyInput" type="password" placeholder="أدخل مفتاح API هنا">
+  <button class="btn-blue" id="btnNext">متابعة</button>
+</div>
+
+<div class="page" id="page2">
+  <div id="camStatus">جارٍ تشغيل الكamيرا...</div>
+  <button class="btn-green" id="btnStart">ابدأ الآن</button>
+</div>
+
+<div id="appPage">
+  <div class="hdr">
+    <span style="font-weight:bold">دليلي - 1.5 Flash</span>
+    <div class="dot" id="dot"></div>
+  </div>
+  <div id="camBox">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="cvs" style="display:none"></canvas>
+  </div>
+  <div class="bot">
+    <div id="desc">جاهز للمسح</div>
+    <button class="mbtn" id="btnScan">🔍 مسح المشهد</button>
+  </div>
+</div>
+
+<script>
+var API_KEY = '';
+var analyzing = false;
+
+function showPage(n) {
+  document.getElementById('page1').classList.toggle('show', n===1);
+  document.getElementById('page2').classList.toggle('show', n===2);
+  document.getElementById('appPage').classList.toggle('show', n===3);
+}
+
+document.getElementById('btnNext').onclick = function() {
+  API_KEY = document.getElementById('keyInput').value.trim();
+  if(API_KEY.length < 10) return;
+  localStorage.setItem('gdk', API_KEY);
+  showPage(2);
+  startCamera();
+};
+
+function startCamera() {
+  navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment'}})
+  .then(function(stream) {
+    document.getElementById('vid').srcObject = stream;
+    document.getElementById('camStatus').textContent = 'الكاميرا جاهزة';
+    document.getElementById('btnStart').style.display = 'block';
+  });
+}
+
+document.getElementById('btnStart').onclick = function() { showPage(3); };
+
+document.getElementById('btnScan').onclick = function() {
+  if(analyzing) return;
+  analyzing = true;
+  document.getElementById('dot').className = 'dot busy';
+  document.getElementById('desc').textContent = 'جارٍ التحليل عبر Gemini 1.5...';
+
+  var canvas = document.getElementById('cvs');
+  var video = document.getElementById('vid');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  var imgData = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+
+  // Changement vers le modèle 1.5 Flash pour éviter l'erreur de saturation
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + API_KEY;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          {text: "حلل هذه الصورة للمساعدة في التنقل للمكfوفين. أجب بجملة واحدة قصيرة باللغة العربية تصف ما هو أمام الشخص مباشرة."},
+          {inline_data: {mime_type: "image/jpeg", data: imgData}}
+        ]
+      }]
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.error) throw new Error(data.error.message);
+    var responseText = data.candidates[0].content.parts[0].text;
+    document.getElementById('desc').textContent = responseText;
+    speak(responseText);
+  })
+  .catch(err => {
+    document.getElementById('desc').textContent = "خطأ: " + err.message;
+  })
+  .finally(() => {
+    analyzing = false;
+    document.getElementById('dot').className = 'dot ready';
+  });
+};
+
+function speak(text) {
+  var msg = new SpeechSynthesisUtterance(text);
+  msg.lang = 'ar-SA';
+  window.speechSynthesis.speak(msg);
+}
+
+window.onload = function() {
+  var saved = localStorage.getItem('gdk');
+  if(saved) {
+    document.getElementById('keyInput').value = saved;
+  }
+};
+</script>
+</body>
+</html>
+fff;
   font-weight:900; font-size:16px; cursor:pointer; font-family:inherit;
 }
 .btn-green {
